@@ -61,20 +61,26 @@ namespace pygame{
         }
     };
     struct Cube{//Note: 2d is screen space but 3d is world space
-        float x;
-        float y;
-        float z;
+        glm::vec3 pos;
         float w;//x-wise
         float h;//y-wise
         float l;//z-wise
-        Cube() noexcept = default;
+        float xrot=0.0;
+        float yrot=0.0;
+        float zrot=0.0;
+        Cube() = default;
         Cube(float x,float y,float z,float w,float h,float l)
-        : x(x),y(y),z(z),w(w),h(h),l(l) {}
-//        bool inline collidepoint(Point point) const{
-//            return (((point.x>x)&&(point.x<(x+l)))&&
-//                    ((point.y>y)&&(point.y<(y+h)))&&
-//                    ((point.z>z)&&(point.z<(z+w))));
-//        }
+        : pos(x,y,z),w(w),h(h),l(l) {}
+        glm::vec3 centerD() const{
+            return glm::vec3(w/2.0,h/2.0,l/2.0);
+        }
+        glm::vec3 inline center() const{
+            return pos+centerD();
+        }
+        void inline set_center(glm::vec3 center){
+            pos = center-centerD();
+        }
+        
     };
     struct Texture{
         int w;
@@ -115,6 +121,9 @@ namespace pygame{
 
         int w,h,color_chnls;
         unsigned char *data = stbi_load(filename,&w,&h,&color_chnls,0);
+        if(data==nullptr){
+            throw pygame::error((std::string)"Unable to load texture: "+filename);
+        }
 
         GLuint texture;
         glGenTextures(1,&texture);
@@ -123,10 +132,11 @@ namespace pygame{
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_BORDER);
         float bordercolor[]={0.0,0.0,0.0,1.0};
         glTexParameterfv(GL_TEXTURE_2D,GL_TEXTURE_BORDER_COLOR,bordercolor);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
 
         glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA16,w,h,0,((color_chnls==3)?(GL_RGB):(GL_RGBA)),GL_UNSIGNED_BYTE,data);
+        glGenerateMipmap(GL_TEXTURE_2D);
 
         stbi_image_free(data);
 
@@ -355,8 +365,8 @@ namespace pygame{
             glUniformHandleui64ARB(imgloc,ch.handle);
             sz = {(float)ch.width,(float)ch.height};
             float vtx[16] = {
-                0.0   , 0.0 ,0.0,1.0,
                 0.0   ,-sz.y,0.0,0.0,
+                0.0   , 0.0 ,0.0,1.0,
                 sz.x  ,-sz.y,1.0,0.0,
                 sz.x  , 0.0 ,1.0,1.0
             };
@@ -366,7 +376,7 @@ namespace pygame{
             charpos.y += size*(ch.height-ch.yoffset);
             charpos.y += topchrs;
             glUniform2f(poslocation,charpos.x,charpos.y);
-            glDrawArrays(GL_TRIANGLE_FAN,0,16);
+            glDrawArrays(GL_TRIANGLE_STRIP,0,16);
             posytion.x += (ch.distance/64.0)*size;
         }
         return tr;
@@ -374,15 +384,11 @@ namespace pygame{
     namespace three_d{
         class Camera{
             public:
-                float pitch,yaw,roll;
                 glm::vec3 pos;
+                float yaw,pitch,roll;
                 Camera() = default;
-                Camera(glm::vec3 pos,float pitch=0.0,float yaw=0.0,float roll=0.0){
-                    this->pos = pos;
-                    this->pitch = pitch;
-                    this->yaw = yaw;
-                    this->roll = roll;
-                }
+                Camera(glm::vec3 pos,float yaw=0.0,float pitch=0.0,float roll=0.0) : pos(pos),yaw(yaw),pitch(pitch),roll(roll)
+                {}
                 glm::vec3 inline worldup() const{
                     float rroll = glm::radians(roll);
                     return glm::vec3(sin(rroll),cos(rroll),0);
@@ -415,7 +421,8 @@ namespace pygame{
                     return glm::mat3(glm::rotate(glm::mat4(1.0),glm::radians(pitch),xzright()))*worldup();
                 }
         };
-    }
+    }//namespace three_d;
+    using three_d::Camera;
     namespace draw{
         Rect rect(Rect in,Color color){
             glUseProgram(single_color_shader.program);
@@ -456,7 +463,13 @@ namespace pygame{
             glm::mat4 projmat = glm::perspective(glm::radians(pinf.fov_degs),pinf.aspc,
                                 pinf.near_clip,pinf.far_clip);
             glUniformMatrix4fv(texture_3d_shader.getLocation("projection"),1,GL_FALSE,glm::value_ptr(projmat));
-            glUniformMatrix4fv(texture_3d_shader.getLocation("model"),1,GL_FALSE,glm::value_ptr(glm::translate(glm::mat4(1.0),glm::vec3(in.x,in.y,in.z))));
+            glm::mat4 model = glm::mat4(1.0);
+            model = glm::translate(model,in.center());
+            model = glm::rotate(model,-glm::radians(in.zrot),glm::vec3(0.0,0.0,-1.0));
+            model = glm::rotate(model,-glm::radians(in.xrot),glm::vec3(1.0,0.0,0.0));
+            model = glm::rotate(model,glm::radians(in.yrot),glm::vec3(0.0,1.0,0.0));
+            model = glm::translate(model,-in.centerD());
+            glUniformMatrix4fv(texture_3d_shader.getLocation("model"),1,GL_FALSE,glm::value_ptr(model));
             {
                 float vtx[20] = {
                     0.0 ,in.h,0.0,1.0,1.0,
@@ -491,15 +504,37 @@ namespace pygame{
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
             {
-            float vtx[20] = {
-                in.w,0.0 ,0.0 ,1.0,0.0,
-                in.w,in.h,0.0 ,1.0,1.0,
-                in.w,0.0 ,in.l,0.0,0.0,
-                in.w,in.h,in.l,0.0,1.0
-            };
-            glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-            glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.right.texturehandle);
-            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                float vtx[20] = {
+                    in.w,0.0 ,0.0 ,1.0,0.0,
+                    in.w,in.h,0.0 ,1.0,1.0,
+                    in.w,0.0 ,in.l,0.0,0.0,
+                    in.w,in.h,in.l,0.0,1.0
+                };
+                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.right.texturehandle);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            }
+            {
+                float vtx[20] = {
+                    0.0 ,in.h,in.l,0.0,0.0,
+                    in.w,in.h,in.l,1.0,0.0,
+                    0.0 ,in.h,0.0 ,0.0,1.0,
+                    in.w,in.h,0.0 ,1.0,1.0
+                };
+                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.top.texturehandle);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            }
+            {
+                float vtx[20] = {
+                    0.0 ,0.0,in.l,0.0,0.0,
+                    0.0 ,0.0,0.0 ,0.0,1.0,
+                    in.w,0.0,in.l,1.0,0.0,
+                    in.w,0.0,0.0 ,1.0,1.0
+                };
+                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.bottom.texturehandle);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
             return in;
         }
