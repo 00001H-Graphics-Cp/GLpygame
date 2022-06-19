@@ -8,7 +8,10 @@ out vec4 fragcolor;
 
 layout(bindless_sampler) uniform sampler2D img;
 
+uniform float transparency=1.0;
 
 void main(){
-    fragcolor = texture(img,texcoords);
+    vec4 color = texture(img,texcoords);
+    color.a *= transparency;
+    fragcolor = color;
 }

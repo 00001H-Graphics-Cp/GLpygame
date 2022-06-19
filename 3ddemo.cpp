@@ -54,6 +54,8 @@ int main(){
     win.setAsOpenGLTarget();
     gsdlInit();
     glViewport(0,0,800,600);
+    glClearColor(0.7,0.7,0.7,1.0);
+    pygame::draw_made_with_glpy(win);
     Chlib charlib;
     stbi_set_flip_vertically_on_load(true);
     Font DEFAULT_FONT = charlib.getfont(L"Cnew","rsrc/courier_new.ttf");

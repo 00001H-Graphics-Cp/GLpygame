@@ -204,7 +204,7 @@ namespace pygame{
             return locations[location];
         }
     };
-    GLuint square_vao,square_vbo,fill_vao,fill_vbo,texture_vao,texture_vbo;
+    GLuint fill_vao,fill_vbo,texture_vao,texture_vbo;
     GLuint colored_polygon_vao,colored_polygon_vbo;
     GLuint texture_3d_vao,texture_3d_vbo;
     Shader texture_shader,text_shader,fill_shader,single_color_shader;
@@ -225,17 +225,6 @@ namespace pygame{
         fill_shader.program = loadprogram(L"rsrc/2d_colored_vertex.glsl",L"rsrc/fill_fragment.glsl");
         single_color_shader.program = loadprogram(L"rsrc/2d_vertex.glsl",L"rsrc/single_color_fragment.glsl");
         texture_3d_shader.program = loadprogram(L"rsrc/3d_textured_vertex.glsl",L"rsrc/3d_textured_fragment.glsl");
-
-        glGenVertexArrays(1,&square_vao);
-        glGenBuffers(1,&square_vbo);
-        glBindVertexArray(square_vao);
-        glBindBuffer(GL_ARRAY_BUFFER,square_vbo);
-        glBufferData(GL_ARRAY_BUFFER,sizeof(simple_quad),simple_quad,GL_STATIC_DRAW);
-        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,4*sizeof(GLfloat),(void*)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,4*sizeof(GLfloat),(void*)(2*sizeof(GLfloat)));
-        glEnableVertexAttribArray(1);
-
 
         glGenVertexArrays(1,&texture_vao);
         glGenBuffers(1,&texture_vbo);
@@ -300,19 +289,29 @@ namespace pygame{
         glDeleteBuffers(1,&fill_vbo);
         glDeleteBuffers(1,&texture_3d_vbo);
     }
-    void blit(GLuint64 image,Point location,double size,int rotation=0){
-        glBindVertexArray(square_vao);
-        glBindBuffer(GL_ARRAY_BUFFER,square_vbo);
+    void blit(Texture image,Point location,double size,int rotation=0,
+    float transparency=1.0){
+        glBindVertexArray(texture_vao);
+        glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
+        float vtx[16] = {
+            0.0           ,0.0           ,0.0,0.0,
+            0.0           ,(float)image.h,0.0,1.0,
+            (float)image.w,0.0           ,1.0,0.0,
+            (float)image.w,(float)image.h,1.0,1.0
+        };
+        glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
         GLint imglocation = texture_shader.getLocation("img");
         GLint poslocation = texture_shader.getLocation("position");
         GLint sizelocation = texture_shader.getLocation("size");
         GLint rotationlocation = texture_shader.getLocation("rotation");
+        GLint transparlocation = texture_shader.getLocation("transparency");
         glUseProgram(texture_shader.program);
-        glUniformHandleui64ARB(imglocation,image);
+        glUniformHandleui64ARB(imglocation,image.texturehandle);
         glUniform2f(poslocation,location.x,location.y);
         glUniform1f(sizelocation,size);
         glUniform1i(rotationlocation,rotation);
-        glDrawArrays(GL_TRIANGLE_FAN,0,4);
+        glUniform1f(transparlocation,transparency);
+        glDrawArrays(GL_TRIANGLE_STRIP,0,4);
     }
     enum class align{
         LEFT,CENTER,RIGHT,
