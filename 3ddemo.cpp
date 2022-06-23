@@ -201,6 +201,6 @@ int main(){
         clk.tick(60);
     }
     gsdlDeinit();
-    quit();
+    pygame::quit();
     return 0;
 }

@@ -1,0 +1,58 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}",
+                "C:\\GL\\include",
+                "E:\\GLpygame"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x86",
+            "compilerPath": "D:\\DVCp\\MinGW64\\bin\\g++.exe",
+            "compilerArgs": [
+                "-march=native",
+                "-Ofast",
+                "-m64",
+                "-std=c++2a",
+                "-Wall",
+                "-mwindows",
+                "-pipe",
+                "C:\\GL\\glad.c",
+                "-I\"D:\\DVCp\\MinGW64\\include\\c++\\10.3.0\"",
+                "-I\"D:\\DVCp\\MinGW64\\include\\c++\\10.3.0\\x86_64-w64-mingw32\"",
+                "-I\"D:\\DVCp\\MinGW64\\include\\c++\\10.3.0\\backward\"",
+                "-I\"D:\\DVCp\\MinGW64\\lib\\gcc\\x86_64-w64-mingw32\\10.3.0\\include\"",
+                "-I\"D:\\DVCp\\MinGW64\\include\"",
+                "-I\"D:\\DVCp\\MinGW64\\lib\\gcc\\x86_64-w64-mingw32\\10.3.0\\include-fixed\"",
+                "-I\"D:\\DVCp\\MinGW64\\x86_64-w64-mingw32\\include\"",
+                "-I\"C:\\GL\\include\"",
+                "-I\"E:\\GLpygame\"",
+                "-L\"D:\\DVCp\\MinGW64\\lib\\gcc\\x86_64-w64-mingw32\\10.3.0\\\"",
+                "-L\"D:\\DVCp\\MinGW64\\lib\\gcc\\\"",
+                "-L\"D:\\DVCp\\MinGW64\\x86_64-w64-mingw32\\lib\\\"",
+                "-L\"D:\\DVCp\\MinGW64\\lib\\\"",
+                "-L\"D:\\DVCp\\MinGW64\\lib\"",
+                "-L\"D:\\DVCp\\MinGW64\\x86_64-w64-mingw32\\lib\"",
+                "-L\"E:\\Refined--1\\static\"",
+                "-L\"E:\\GLpygame\\libs\"",
+                "-m64",
+                "-mwindows",
+                "-s",
+                "-lglfw3",
+                "-lgdi32",
+                "-lglfw3",
+                "-lgdi32",
+                "-lfreetype",
+                "-static"
+            ]
+        }
+    ],
+    "version": 4
+}
