@@ -29,7 +29,7 @@ int main(){
     wstring tt;
     Clock clk;
     
-    while(!win.pending_close_action()){
+    while(!win.shouldClose()){
         glfwPollEvents();
         for(Event evt : win.eventqueue->get()){
             if(evt.type == MOUSEBUTTONDOWN){

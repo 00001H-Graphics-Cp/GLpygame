@@ -32,7 +32,7 @@ namespace pygame{
         time::Clock clok;
         const float size = 3.5;
         Point middle((1920.0-tex.w*size)/2.0,(1080.0-tex.h*size)/2.0);
-        while(!win.pending_close_action()){
+        while(!win.shouldClose()){
             glfwPollEvents();
             win.eventqueue.get();
             glClear(GL_COLOR_BUFFER_BIT);

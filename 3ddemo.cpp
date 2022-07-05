@@ -3,9 +3,11 @@
 #include<vector>
 #include<utility>
 #include<any>
+#include<iostream>
 #include"pygame.hpp"
 using std::wstring;
 using std::vector;
+using std::any_cast;
 using namespace pygame;
 using namespace pygame::event;
 using pygame::display::Window;
@@ -45,6 +47,15 @@ float inline constexpr modudist(float x,float y,float mod){
 }
 static_assert(modudist(0,10,11)==1);
 int main(){
+    std::shared_ptr<Chlib> pcharlib=nullptr;
+    try{
+        pcharlib = std::make_shared<Chlib>();
+    }catch(FTError &e){
+        std::cout << e.what() << std::endl;
+        int som;
+        std::cin >> som;
+    }
+    Chlib &charlib = *pcharlib;
     init();
     glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4);
@@ -56,7 +67,6 @@ int main(){
     glViewport(0,0,800,600);
     glClearColor(0.7,0.7,0.7,1.0);
     pygame::draw_made_with_glpy(win);
-    Chlib charlib;
     stbi_set_flip_vertically_on_load(true);
     Font DEFAULT_FONT = charlib.getfont(L"Cnew","rsrc/courier_new.ttf");
     Font RECT_FONT = charlib.getfont(L"Crosshair","rsrc/courier_new.ttf");
@@ -93,7 +103,7 @@ int main(){
     float player_yaccel=0.0;
     int mind=0;
     int rota=0;
-    while(!win.pending_close_action()){
+    while(!win.shouldClose()){
         glEnable(GL_DEPTH_TEST);
         glfwPollEvents();
         for(Event evt : win.eventqueue->get()){

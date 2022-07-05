@@ -99,7 +99,7 @@ namespace pygame{
                 GLFWwindow *glfwWindow() const{
                     return win;
                 }
-                bool inline pending_close_action() const{
+                bool inline shouldClose() const{
                     return glfwWindowShouldClose(win);
                 }
                 void inline setAsOpenGLTarget() const{
