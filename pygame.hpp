@@ -19,11 +19,12 @@ namespace pygame{
         _is_init = false;
     }
     void draw_made_with_glpy(display::Window win,float insecs=1.5,float staysecs=1.25,float outsecs=1.5){
+        stbi_set_flip_vertically_on_load(true);
         //WARNING: Overwrites some OpenGL parameters!
         //WARNING: Requires glClearColor to be set!
         const float FPS=60.00;
         #define sec2frm(sec) (glm::round((sec)*FPS))
-        Texture tex = loadTexture2D("rsrc/glpy.png");
+        pTexture tex = loadTexture2D("rsrc/glpy.png");
         float inframes = sec2frm(insecs);
         float stayframes = sec2frm(staysecs);
         float outframes = sec2frm(outsecs);
@@ -34,7 +35,7 @@ namespace pygame{
         float visibility;
         time::Clock clok;
         const float size = 3.5;
-        Point middle((1920.0-tex.getWidth()*size)/2.0,(1080.0-tex.getHeight()*size)/2.0);
+        Point middle((1920.0-tex->getWidth()*size)/2.0,(1080.0-tex->getHeight()*size)/2.0);
         while(!win.shouldClose()){
             glfwPollEvents();
             win.eventqueue.get();
