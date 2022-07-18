@@ -7,10 +7,7 @@
 			"command": "g++.exe \"${fileDirname}\\${fileBasename}\" -o \"${fileDirname}\\${fileBasenameNoExtension}.exe\" -Ofast -m64 -std=c++2a -Wall -pipe C:/GL/glad.c -I\"C:/GL/include\" -I\"E:/GLpygame\" -I\"D:/freetype-2.12.1/include\" -L\"E:/GLpygame/libs\"  -s -lglfw3 -lgdi32 -lfreetype -static",
 			"problemMatcher": {
 				"owner": "cpp",
-				"fileLocation": [
-					"relative",
-					"${workspaceFolder}"
-				],
+				"fileLocation": "autoDetect",
 				"pattern": {
 					"regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
 					"file": 1,

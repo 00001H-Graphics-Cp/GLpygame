@@ -7,6 +7,7 @@
 #include<memory>
 
 #include<glad/glad.h>
+#define GLM_FORCE_SWIZZLE
 #include<glm/glm.hpp>
 #include<glm/gtc/type_ptr.hpp>
 #include<glm/gtc/matrix_transform.hpp>
@@ -15,7 +16,6 @@
 #undef STB_IMAGE_IMPLEMENTATION
 
 #include"chlibs.hpp"
-#include"math.hpp"
 #include"fileutils.hpp"
 
 namespace pygame{
@@ -37,7 +37,9 @@ namespace pygame{
     };
     #undef inherits
 
-
+    using glm::vec2;
+    using glm::vec3;
+    using glm::vec4;
     typedef vec2 Point;
     typedef vec4 Color;
     struct Rect{
@@ -47,13 +49,13 @@ namespace pygame{
         float h;
         Rect() noexcept = default;
         Rect(float x,float y,float w,float h) : x(x),y(y),w(w),h(h) {}
-        bool inline colliderect(Rect &other) const{
+        bool colliderect(Rect &other) const{
             return ((x<(other.y+other.w))//left is lefter than other right
                   &&((x+w)>(other.x))//right is righter than other left
                   &&(y<(other.y+other.h))//top is topper than other bottom//note:bigger y = lower
                   &&((y+h)>(other.y)));//bottom is bottomer than other top
         }
-        bool inline collidepoint(Point point) const{
+        bool collidepoint(Point point) const{
             return (((point.x)<(x+w))//lefter than right
                   &&((point.x)>x)//righter than left
                   &&((point.y)<(y+h))//topper than bottom
@@ -74,32 +76,88 @@ namespace pygame{
         glm::vec3 centerD() const{
             return glm::vec3(w/2.0,h/2.0,l/2.0);
         }
-        glm::vec3 inline center() const{
+        glm::vec3 center() const{
             return pos+centerD();
         }
-        void inline set_center(glm::vec3 center){
+        void set_center(glm::vec3 center){
             pos = center-centerD();
         }
         
     };
-    struct Texture{
-        int w;
-        int h;
-        int color_channels;
-        GLuint texturei;
-        GLuint64 texturehandle;
-        private:bool initialized = false;
+    class Texture{
+        private:
+            Texture(GLuint &&texturei,GLsizei w,GLsizei h,GLenum ifmt){
+                texture = texturei;
+                width = w;
+                height = h;
+                internalformat = ifmt;
+                texturehandle = glGetTextureHandleARB(texture);
+                resident = false;
+                enable();
+            }
+            bool resident;
+            bool placeholder=false;
+            GLsizei width;
+            GLsizei height;
+            GLenum internalformat;
+            GLuint texture;
+            GLuint64 texturehandle;
         public:
-        Texture(GLuint64 handle) : texturehandle(handle) {
-            glMakeTextureHandleResidentARB(handle);
-            initialized = true;
-        }
-        Texture(){
-            texturehandle = -1;
-        }
-        ~Texture(){
-            if(initialized)glMakeTextureHandleNonResidentARB(texturehandle);
-        }
+            Texture(){
+                resident=false;
+                width=height=0;
+                internalformat = -1;
+                texture = -1;
+                texturehandle = -1;
+            }
+            static Texture create2D(
+                unsigned char *data=nullptr,
+                GLsizei width=1,
+                GLsizei height=1,
+                GLenum imageformat=GL_RGBA16,
+                GLenum internalformat=GL_RGBA16,
+                GLenum minfilter=GL_NEAREST_MIPMAP_LINEAR,
+                GLenum magfilter=GL_NEAREST,
+                bool mipmap=true,
+                GLenum wrap_s=GL_CLAMP_TO_BORDER,
+                GLenum wrap_t=GL_CLAMP_TO_BORDER,
+                Color bordercolor={0.0,0.0,0.0,1.0}
+            ){
+                GLuint texture;
+                glGenTextures(1,&texture);
+                glBindTexture(GL_TEXTURE_2D,texture);
+                glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,wrap_s);
+                glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,wrap_t);
+                glTexParameterfv(GL_TEXTURE_2D,GL_TEXTURE_BORDER_COLOR,value_ptr(bordercolor));
+                glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,minfilter);
+                glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,magfilter);
+                glTexImage2D(GL_TEXTURE_2D,0,internalformat,width,height,0,imageformat,GL_UNSIGNED_BYTE,data);
+                if(mipmap)glGenerateMipmap(GL_TEXTURE_2D);
+                return Texture(std::move(texture),width,height,internalformat);
+
+            }
+            void enable(){
+                if(!resident){
+                    glMakeTextureHandleResidentARB(texturehandle);
+                }
+            }
+            void disable(){
+                if(resident){
+                    glMakeTextureHandleNonResidentARB(texturehandle);
+                }
+            }
+            auto getWidth(){
+                return width;
+            }
+            auto getHeight(){
+                return height;
+            }
+            auto getHandle(){
+                return texturehandle;
+            }
+            ~Texture(){
+                disable();
+            }
     };
     struct CubeTexture{
         public:
@@ -113,42 +171,38 @@ namespace pygame{
                 front=back=top=bottom=left=right=face;
             }
     };
-    std::unordered_map<std::string,Texture> texturecache;
-    Texture loadTexture(const char* filename){
-        if(texturecache.count((std::string)filename)){
-            return texturecache[(std::string)filename];
-        }
-
+    Texture loadTexture2D(const char* filename){
         int w,h,color_chnls;
         unsigned char *data = stbi_load(filename,&w,&h,&color_chnls,0);
         if(data==nullptr){
             throw pygame::error((std::string)"Unable to load texture: "+filename);
         }
-
-        GLuint texture;
-        glGenTextures(1,&texture);
-        glBindTexture(GL_TEXTURE_2D,texture);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_BORDER);
-        float bordercolor[]={0.0,0.0,0.0,1.0};
-        glTexParameterfv(GL_TEXTURE_2D,GL_TEXTURE_BORDER_COLOR,bordercolor);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-
-        glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA16,w,h,0,((color_chnls==3)?(GL_RGB):(GL_RGBA)),GL_UNSIGNED_BYTE,data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
+        Texture texture=Texture::create2D(data,w,h,
+        (color_chnls==3)?GL_RGB:GL_RGBA
+        ,GL_RGBA16);
         stbi_image_free(data);
-
-        GLuint64 handle = glGetTextureHandleARB(texture);
-        Texture tex = Texture(handle);
-        tex.texturei = texture;
-        tex.color_channels = color_chnls;
-        tex.w = w;
-        tex.h = h;
-        texturecache.emplace((std::string)filename,tex);
-        return tex;
+        return texture;
     }
+    class Framebuffer{
+        private:
+            GLuint fbo=0;
+        public:
+            Framebuffer(){
+                glGenFramebuffers(1,&fbo);
+            }
+            bool isComplete(GLenum forMode=GL_DRAW_FRAMEBUFFER){
+                return glCheckNamedFramebufferStatus(fbo,forMode)==GL_FRAMEBUFFER_COMPLETE;
+            }
+            void bindTo(GLenum target=GL_FRAMEBUFFER){
+                glBindFramebuffer(target,fbo);
+            }
+            void attach(){
+                
+            }
+            static void unbind(GLenum target=GL_FRAMEBUFFER){
+                glBindFramebuffer(target,0);
+            }
+    };
     GLuint loadprogram(const wchar_t*vs,const wchar_t*fs){
         using namespace std;
         GLint compiled;
@@ -197,7 +251,7 @@ namespace pygame{
     struct Shader{
         GLuint program=-1;
         std::unordered_map<std::string,GLint> locations;
-        GLint inline getLocation(const char* location){
+        GLint getLocation(const char* location){
             if(locations.count(location)==0){
                 locations.emplace(location,glGetUniformLocation(program,location));
             }
@@ -294,10 +348,10 @@ namespace pygame{
         glBindVertexArray(texture_vao);
         glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
         float vtx[16] = {
-            0.0           ,0.0           ,0.0,0.0,
-            0.0           ,(float)image.h,0.0,1.0,
-            (float)image.w,0.0           ,1.0,0.0,
-            (float)image.w,(float)image.h,1.0,1.0
+            0.0                    ,0.0                     ,0.0,0.0,
+            0.0                    ,(float)image.getHeight(),0.0,1.0,
+            (float)image.getWidth(),0.0                     ,1.0,0.0,
+            (float)image.getWidth(),(float)image.getHeight(),1.0,1.0
         };
         glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
         GLint imglocation = texture_shader.getLocation("img");
@@ -306,7 +360,7 @@ namespace pygame{
         GLint rotationlocation = texture_shader.getLocation("rotation");
         GLint transparlocation = texture_shader.getLocation("transparency");
         glUseProgram(texture_shader.program);
-        glUniformHandleui64ARB(imglocation,image.texturehandle);
+        glUniformHandleui64ARB(imglocation,image.getHandle());
         glUniform2f(poslocation,location.x,location.y);
         glUniform1f(sizelocation,size);
         glUniform1i(rotationlocation,rotation);
@@ -339,6 +393,7 @@ namespace pygame{
         }
         return Rect(position.x+xdelta,position.y,textwidth,topchrs-bottomchrs);
     }
+    
     Rect draw_text(Font font,std::wstring text,Point position,float size,
                    Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT){
         float topchrs=0.0;
@@ -388,11 +443,11 @@ namespace pygame{
                 Camera() = default;
                 Camera(glm::vec3 pos,float yaw=0.0,float pitch=0.0,float roll=0.0) : pos(pos),yaw(yaw),pitch(pitch),roll(roll)
                 {}
-                glm::vec3 inline worldup() const{
+                glm::vec3 worldup() const{
                     float rroll = glm::radians(roll);
                     return glm::vec3(sin(rroll),cos(rroll),0);
                 }
-                glm::mat4 inline viewmatrix() const{
+                glm::mat4 viewmatrix() const{
                     glm::mat4 trans = glm::mat4(1.0);
                     trans = glm::rotate(trans,-glm::radians(pitch),glm::vec3(1.0,0.0,0.0));
                     trans = glm::rotate(trans,glm::radians(yaw+90),glm::vec3(0.0,1.0,0.0));
@@ -400,23 +455,23 @@ namespace pygame{
                     trans = glm::translate(trans,-pos);
                     return trans;
                 }
-                glm::vec3 inline direction() const{
+                glm::vec3 direction() const{
                     float ryaw = glm::radians(yaw);
                     float rpitch = glm::radians(pitch);
                     return glm::normalize(glm::vec3(cos(ryaw)*cos(rpitch),sin(rpitch),sin(ryaw)*cos(rpitch)));
                 }
-                glm::vec3 inline xzfront() const{
+                glm::vec3 xzfront() const{
                     float ryaw = glm::radians(yaw);
                     return glm::vec3(cos(ryaw),0,sin(ryaw));
                 }
-                glm::vec3 inline xzright() const{
+                glm::vec3 xzright() const{
                     float ryaw = glm::radians(yaw);
                     return glm::vec3(-sin(ryaw),0,cos(ryaw));
                 }
-                glm::vec3 inline right() const{
+                glm::vec3 right() const{
                     return glm::cross(direction(),up());
                 }
-                glm::vec3 inline up() const{
+                glm::vec3 up() const{
                     return glm::mat3(glm::rotate(glm::mat4(1.0),glm::radians(pitch),xzright()))*worldup();
                 }
         };
@@ -477,7 +532,7 @@ namespace pygame{
                     in.w,0.0 ,0.0,0.0,0.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.back.texturehandle);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.back.getHandle());
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
             {
@@ -488,7 +543,7 @@ namespace pygame{
                     in.w,0.0 ,in.l,1.0,0.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.front.texturehandle);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.front.getHandle());
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
             {
@@ -499,7 +554,7 @@ namespace pygame{
                     0.0,in.h,in.l,1.0,1.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.left.texturehandle);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.left.getHandle());
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
             {
@@ -510,7 +565,7 @@ namespace pygame{
                     in.w,in.h,in.l,0.0,1.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.right.texturehandle);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.right.getHandle());
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
             {
@@ -521,7 +576,7 @@ namespace pygame{
                     in.w,in.h,0.0 ,1.0,1.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.top.texturehandle);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.top.getHandle());
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
             {
@@ -532,7 +587,7 @@ namespace pygame{
                     in.w,0.0,0.0 ,1.0,1.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.bottom.texturehandle);
+                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.bottom.getHandle());
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
             return in;
@@ -565,10 +620,10 @@ namespace pygame{
     }//namespace time;
 }//namespace pygame;
 namespace std{
-    std::string inline to_string(pygame::Rect rct){
+    std::string to_string(pygame::Rect rct){
         return (string)"pygame.Rect("+to_string(rct.x)+","+to_string(rct.y)+","+to_string(rct.w)+","+to_string(rct.h)+")";
     }
-    std::string inline to_string(pygame::Point pt){
+    std::string to_string(pygame::Point pt){
         return (string)"pygame.Point("+to_string(pt.x)+","+to_string(pt.y)+")";
     }
 }//namespace std;

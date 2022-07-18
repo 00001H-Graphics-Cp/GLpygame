@@ -3,7 +3,6 @@
 
 #include<vector>
 #include<memory>
-#include"math.hpp"
 #include<any>
 #include<GLFW/glfw3.h>
 #include<unordered_map>
@@ -76,11 +75,14 @@ namespace pygame{
                 static void inline _Handle_KeyPress(GLFWwindow* win,int key,int scan,int action,int mods){
                     winmaps[win]->eventqueue->put(event::Event(((action==GLFW_PRESS) ? event::KEYDOWN : event::KEYUP),event::KeyEvent(key,scan,mods)));
                 }
-                GLFWwindow* win;
-            public:
+                GLFWwindow* win = nullptr;
+                GLFWmonitor* fullscreen_monitor = nullptr;
+                GLFWmonitor* current_monitor = nullptr;
+                int fullscreen_fps = 0;
                 double sw,sh;
+            public:
                 std::shared_ptr<event::Events> eventqueue;
-                Window(int width,int height,const char *title,GLFWmonitor *monitor=NULL,GLFWwindow *share=NULL){
+                Window(int width,int height,const char *title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL){
                     win = glfwCreateWindow(width,height,title,monitor,share);
                     if(win==NULL){
                         throw window_creation_failed("Window creation failed!");
@@ -92,6 +94,29 @@ namespace pygame{
                     glfwSetKeyCallback(win,_Handle_KeyPress);
                     sw = width;
                     sh = height;
+                    current_monitor = monitor;
+                    fullscreen_monitor = ((monitor==nullptr)?glfwGetPrimaryMonitor():monitor);
+                }
+                bool inline isWindowed() const{
+                    return current_monitor==nullptr;
+                }
+                bool inline isFullscreen() const{
+                    return !isWindowed();
+                }
+                void inline setFullscreenMonitor(GLFWmonitor *mon){
+                    fullscreen_monitor = mon;
+                }
+                void inline setFullscreenFPS(int fps){//0 for automatic
+                    fullscreen_fps = fps;
+                }
+                void inline toggleFullscreen(){
+                    if(isWindowed()){
+                        current_monitor = fullscreen_monitor;
+                    }else{
+                        current_monitor = nullptr;
+                    }
+                    glfwSetWindowMonitor(win,current_monitor,0,0,sw,sh,
+                    ((fullscreen_fps==0)?GLFW_DONT_CARE:fullscreen_fps));
                 }
                 Point inline getMousePos() const{
                     return getMousePos(win);
@@ -104,6 +129,12 @@ namespace pygame{
                 }
                 void inline setAsOpenGLTarget() const{
                     glfwMakeContextCurrent(win);
+                }
+                double inline getWidth() const{
+                    return sw;
+                }
+                double inline getHeight() const{
+                    return sh;
                 }
                 void inline onresize(GLFWframebuffersizefun func) const{
                     glfwSetFramebufferSizeCallback(win,func);

@@ -77,11 +77,11 @@ int main(){
     glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
     glPixelStorei(GL_UNPACK_ALIGNMENT,1);
     Clock clk;
-    Texture fteximg = loadTexture("demorsrc/grid.png");
-    Texture tex = loadTexture("demorsrc/a.png");
+    Texture fteximg = loadTexture2D("demorsrc/grid.png");
+    Texture tex = loadTexture2D("demorsrc/a.png");
     CubeTexture ctex = CubeTexture(tex);
-    ctex.left = loadTexture("demorsrc/b.png");
-    ctex.back = loadTexture("demorsrc/c.png");
+    ctex.left = loadTexture2D("demorsrc/b.png");
+    ctex.back = loadTexture2D("demorsrc/c.png");
     CubeTexture floortex = CubeTexture(fteximg);
     Cube floorcube = Cube(-25,-1,-25,50,1,50);
     draw::pinf.aspc = 8.0/6.0;

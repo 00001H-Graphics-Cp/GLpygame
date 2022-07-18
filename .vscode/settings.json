@@ -44,6 +44,10 @@
   ],
   "files.associations": {
     "any": "cpp",
-    "iostream": "cpp"
+    "iostream": "cpp",
+    "atomic": "cpp",
+    "*.tcc": "cpp",
+    "istream": "cpp",
+    "ostream": "cpp"
   }
 }
