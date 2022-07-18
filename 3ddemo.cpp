@@ -12,6 +12,9 @@ using namespace pygame;
 using namespace pygame::event;
 using pygame::display::Window;
 using pygame::time::Clock;
+using std::cout;
+using std::cin;
+using std::endl;
 class GameObject{
     public:
         virtual void draw() const = 0;
@@ -46,6 +49,55 @@ float inline constexpr modudist(float x,float y,float mod){
     return min(abs(x-y),min(abs(x+mod-y),abs(x-mod-y)));
 }
 static_assert(modudist(0,10,11)==1);
+void APIENTRY glDebugOutput(GLenum source, 
+                            GLenum type, 
+                            unsigned int id, 
+                            GLenum severity, 
+                            GLsizei length, 
+                            const char *message, 
+                            const void *userParam)
+{
+    // ignore non-significant error/warning codes
+    if(id == 131169 || id == 131185 || id == 131218 || id == 131204) return; 
+
+    std::cout << "---------------" << std::endl;
+    std::cout << "Debug message (" << id << "): " <<  message << std::endl;
+
+    switch (source)
+    {
+        case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
+        case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
+        case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
+        case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
+        case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
+    } std::cout << std::endl;
+
+    switch (type)
+    {
+        case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break; 
+        case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
+        case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
+        case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
+        case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
+        case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
+        case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
+    } std::cout << std::endl;
+    
+    switch (severity)
+    {
+        case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
+        case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
+        case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
+    } std::cout << std::endl;
+    std::cout << std::endl;
+}
+int SW = 800;
+int SH = 600;
+#define GL_DEBUG_CONTEXT false
 int main(){
     std::shared_ptr<Chlib> pcharlib=nullptr;
     try{
@@ -61,27 +113,33 @@ int main(){
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,6);
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
-    Window win = Window(800,600,"3D Test");
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_DEBUG_CONTEXT);  
+    Window win = Window(SW,SH,"3D Test");
     win.setAsOpenGLTarget();
     gsdlInit();
-    glViewport(0,0,800,600);
+    #if GL_DEBUG_CONTEXT==true
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); 
+    glDebugMessageCallback(glDebugOutput, nullptr);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    #endif
     glClearColor(0.7,0.7,0.7,1.0);
+    
     pygame::draw_made_with_glpy(win);
     stbi_set_flip_vertically_on_load(true);
     Font DEFAULT_FONT = charlib.getfont(L"Cnew","rsrc/courier_new.ttf");
-    Font RECT_FONT = charlib.getfont(L"Crosshair","rsrc/courier_new.ttf");
     DEFAULT_FONT->set_dimensions(0,45);
-    RECT_FONT->set_dimensions(25,20);
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
     glPixelStorei(GL_UNPACK_ALIGNMENT,1);
     Clock clk;
-    Texture fteximg = loadTexture2D("demorsrc/grid.png");
-    Texture tex = loadTexture2D("demorsrc/a.png");
+    pTexture fteximg = loadTexture2D("demorsrc/grid.png");
+    pTexture tex = loadTexture2D("demorsrc/a.png");
     CubeTexture ctex = CubeTexture(tex);
     ctex.left = loadTexture2D("demorsrc/b.png");
     ctex.back = loadTexture2D("demorsrc/c.png");
+    cout << "ImageLoad:: Complete" << endl;
     CubeTexture floortex = CubeTexture(fteximg);
     Cube floorcube = Cube(-25,-1,-25,50,1,50);
     draw::pinf.aspc = 8.0/6.0;
@@ -103,6 +161,16 @@ int main(){
     float player_yaccel=0.0;
     int mind=0;
     int rota=0;
+    cout << "GameSetup:: Complete" << endl;
+    pTexture scene = std::make_shared<Texture>(nullptr,1920,1080,GL_RGB,GL_RGB,GL_NEAREST,GL_NEAREST,false);
+    Framebuffer fbo;
+    Renderbuffer rb(GL_DEPTH24_STENCIL8,1920,1080);
+    fbo.attachTexture(scene);
+    fbo.attachRenderbuf(GL_DEPTH_STENCIL_ATTACHMENT,rb);
+    assert(fbo.isComplete());
+    cout << "SceneSetup:: Complete" << endl;
+    Shader NEWSHADER;
+    NEWSHADER.program = loadprogram(L"rsrc/2d_textured_vertex.glsl",L"rsrc/kernalfs.glsl");
     while(!win.shouldClose()){
         glEnable(GL_DEPTH_TEST);
         glfwPollEvents();
@@ -175,30 +243,42 @@ int main(){
             }
         }
         lastpos = cupos;
+
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
+        fbo.bind();
+        glViewport(0,0,1920,1080);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
         pygame::draw::cube(floorcube,floortex);
-        for(CubeObject& gobj : objects){
-            gobj.draw();
-            if(&gobj!=grabbing){
-                if(gobj.cbe.pos.y>0){
-                    gobj.yaccel += GRAVITY;
-                }else{
-                    gobj.cbe.pos.y = 0;
-                    gobj.yaccel = std::max<float>(gobj.yaccel,0);
+        for(CubeObject& p : objects){
+            p.draw();
+        }
+        Framebuffer::unbind();
+        glViewport(0,0,SW,SH);
+
+        if(Curgrab){
+            for(CubeObject& gobj : objects){
+                if(&gobj!=grabbing){
+                    if(gobj.cbe.pos.y>0){
+                        gobj.yaccel += GRAVITY;
+                    }else{
+                        gobj.cbe.pos.y = 0;
+                        gobj.yaccel = std::max<float>(gobj.yaccel,0);
+                    }
+                    gobj.cbe.pos.y += gobj.yaccel;
                 }
-                gobj.cbe.pos.y += gobj.yaccel;
             }
+            if(camera->pos.y-PLAYER_HEIGHT>0){
+                player_yaccel += GRAVITY;
+            }else{
+                camera->pos.y = PLAYER_HEIGHT;
+                player_yaccel = std::max<float>(player_yaccel,0);
+            }
+            camera->pos.y += player_yaccel;
         }
-        if(camera->pos.y-PLAYER_HEIGHT>0){
-            player_yaccel += GRAVITY;
-        }else{
-            camera->pos.y = PLAYER_HEIGHT;
-            player_yaccel = std::max<float>(player_yaccel,0);
-        }
-        camera->pos.y += player_yaccel;
         glDisable(GL_DEPTH_TEST);
-        pygame::draw_text(DEFAULT_FONT,L"GLpygame 3D demo(ver.0017a) all pasterights reserved",{10.0,10.0},1.0);
-        pygame::draw_text(RECT_FONT,L"+",{1920.0/2.0,1080.0/2.0-12.5},3.0,{1.0,1.0,1.0,0.7},align::CENTER);
+        pygame::blit(scene,{0.0,0.0},1.0,0,1.0F,&NEWSHADER);
+        pygame::draw_text(DEFAULT_FONT,L"GLpygame 3D demo(ver.0226rc1) all pasterights reserved",{10.0,10.0},1.0);
         if(grabbing != nullptr){
             pygame::draw_text(DEFAULT_FONT,L"GRAB",{10.0,75.0},1.0);
         }

@@ -7,7 +7,7 @@
 #include<GLFW/glfw3.h>
 #include<unordered_map>
 #include<stdexcept>
-#include"gsdl.hpp"
+#include<gsdl.hpp>
 namespace pygame{
     namespace event{
         enum EventType{
@@ -45,7 +45,7 @@ namespace pygame{
             int scancode;
             int mods;
             KeyEvent(int key,int scan,int mods) : glfw_key(key),scancode(scan),mods(mods) {}
-            bool inline is_key(int key,int _orscan=-1) const{return (((key==GLFW_KEY_UNKNOWN)||(glfw_key==GLFW_KEY_UNKNOWN))?(scancode==_orscan):(key==glfw_key));}
+            bool is_key(int key,int _orscan=-1) const{return (((key==GLFW_KEY_UNKNOWN)||(glfw_key==GLFW_KEY_UNKNOWN))?(scancode==_orscan):(key==glfw_key));}
         };
     }
     namespace display{
@@ -56,23 +56,23 @@ namespace pygame{
         std::unordered_map<GLFWwindow*,Window*> winmaps;
         class Window{
             private:
-                static Point inline toPygameCoords(glm::dvec2 in,double sw,double sh){
+                static Point toPygameCoords(glm::dvec2 in,double sw,double sh){
                     return {(float)(in.x/sw*1920.0),(float)(in.y/sh*1080.0)};
                 }
-                static Point inline getMousePos(GLFWwindow *win){
+                static Point getMousePos(GLFWwindow *win){
                     double x,y;
                     glfwGetCursorPos(win,&x,&y);
                     Window *self = winmaps[win];
                     return toPygameCoords(vec2{x,y},self->sw,self->sh);
                 }
-                static void inline _Handle_MouseMotion(GLFWwindow* win,double x,double y){
+                static void _Handle_MouseMotion(GLFWwindow* win,double x,double y){
                     Window *self = winmaps[win];
                     self->eventqueue->put(event::Event(event::MOUSEMOTION,toPygameCoords(vec2{x,y},self->sw,self->sh)));
                 }
-                static void inline _Handle_MouseButton(GLFWwindow* win,int btn,int action,int mods){
+                static void _Handle_MouseButton(GLFWwindow* win,int btn,int action,int mods){
                     winmaps[win]->eventqueue->put(event::Event(((action==GLFW_PRESS) ? event::MOUSEBUTTONDOWN : event::MOUSEBUTTONUP),event::MouseButtonEvent(getMousePos(win),btn)));
                 }
-                static void inline _Handle_KeyPress(GLFWwindow* win,int key,int scan,int action,int mods){
+                static void _Handle_KeyPress(GLFWwindow* win,int key,int scan,int action,int mods){
                     winmaps[win]->eventqueue->put(event::Event(((action==GLFW_PRESS) ? event::KEYDOWN : event::KEYUP),event::KeyEvent(key,scan,mods)));
                 }
                 GLFWwindow* win = nullptr;
@@ -97,19 +97,19 @@ namespace pygame{
                     current_monitor = monitor;
                     fullscreen_monitor = ((monitor==nullptr)?glfwGetPrimaryMonitor():monitor);
                 }
-                bool inline isWindowed() const{
+                bool isWindowed() const{
                     return current_monitor==nullptr;
                 }
-                bool inline isFullscreen() const{
+                bool isFullscreen() const{
                     return !isWindowed();
                 }
-                void inline setFullscreenMonitor(GLFWmonitor *mon){
+                void setFullscreenMonitor(GLFWmonitor *mon){
                     fullscreen_monitor = mon;
                 }
-                void inline setFullscreenFPS(int fps){//0 for automatic
+                void setFullscreenFPS(int fps){//0 for automatic
                     fullscreen_fps = fps;
                 }
-                void inline toggleFullscreen(){
+                void toggleFullscreen(){
                     if(isWindowed()){
                         current_monitor = fullscreen_monitor;
                     }else{
@@ -118,34 +118,34 @@ namespace pygame{
                     glfwSetWindowMonitor(win,current_monitor,0,0,sw,sh,
                     ((fullscreen_fps==0)?GLFW_DONT_CARE:fullscreen_fps));
                 }
-                Point inline getMousePos() const{
+                Point getMousePos() const{
                     return getMousePos(win);
                 }
                 GLFWwindow *glfwWindow() const{
                     return win;
                 }
-                bool inline shouldClose() const{
+                bool shouldClose() const{
                     return glfwWindowShouldClose(win);
                 }
-                void inline setAsOpenGLTarget() const{
+                void setAsOpenGLTarget() const{
                     glfwMakeContextCurrent(win);
                 }
-                double inline getWidth() const{
+                double getWidth() const{
                     return sw;
                 }
-                double inline getHeight() const{
+                double getHeight() const{
                     return sh;
                 }
-                void inline onresize(GLFWframebuffersizefun func) const{
+                void onresize(GLFWframebuffersizefun func) const{
                     glfwSetFramebufferSizeCallback(win,func);
                 }
-                void inline swapBuffers() const{
+                void swapBuffers() const{
                     glfwSwapBuffers(win);
                 }
-                void inline close() const{
+                void close() const{
                     glfwDestroyWindow(win);
                 }
-                bool inline getKey(int key) const{
+                bool getKey(int key) const{
                     return glfwGetKey(win,key);
                 }
         };
